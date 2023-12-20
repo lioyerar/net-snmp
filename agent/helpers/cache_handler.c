@@ -57,12 +57,12 @@ void            release_cached_resources(unsigned int regNo,
  *  always return true, and thus the cache will be reloaded for every
  *  request.
  *
- *  To minimze resource use by the agent, a periodic callback checks for
+ *  To minimize resource use by the agent, a periodic callback checks for
  *  expired caches, and will call the free_cache function for any expired
  *  cache.
  *
  *  The load_cache routine should return a negative number if the cache
- *  was not successfully loaded. 0 or any positive number indicates successs.
+ *  was not successfully loaded. 0 or any positive number indicates success.
  *
  *
  *  Several flags can be set to affect the operations on the cache.
@@ -220,16 +220,20 @@ netsnmp_cache_create(int timeout, NetsnmpCacheLoad * load_hook,
     return cache;
 }
 
-static netsnmp_cache *
-netsnmp_cache_ref(netsnmp_cache *cache)
+static void *
+netsnmp_cache_ref(void *p)
 {
+    netsnmp_cache *cache = p;
+
     cache->refcnt++;
     return cache;
 }
 
 static void
-netsnmp_cache_deref(netsnmp_cache *cache)
+netsnmp_cache_deref(void *p)
 {
+    netsnmp_cache *cache = p;
+
     if (--cache->refcnt == 0) {
         netsnmp_cache_remove(cache);
         netsnmp_cache_free(cache);
@@ -412,8 +416,8 @@ void netsnmp_cache_handler_owns_cache(netsnmp_mib_handler *handler)
 {
     netsnmp_assert(handler->myvoid);
     ((netsnmp_cache *)handler->myvoid)->refcnt++;
-    handler->data_clone = (void *(*)(void *))netsnmp_cache_ref;
-    handler->data_free = (void(*)(void*))netsnmp_cache_deref;
+    handler->data_clone = netsnmp_cache_ref;
+    handler->data_free = netsnmp_cache_deref;
 }
 
 /** returns a cache handler that can be injected into a given handler chain.  
@@ -766,7 +770,7 @@ _cache_load( netsnmp_cache *cache )
  * xxx - method to prevent cache from expiring while a request
  *     is being processed (e.g. delegated request). proposal:
  *     set a flag, which would be cleared when request finished
- *     (which could be acomplished by a dummy data list item in
+ *     (which could be accomplished by a dummy data list item in
  *     agent req info & custom free function).
  */
 void

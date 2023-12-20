@@ -17123,7 +17123,7 @@ printf "%s\n" "$as_me: Checking for developer compiler flags" >&6;}
     for opt in -Wall -Wextra -Wstrict-prototypes -Wwrite-strings -Wcast-qual \
         -Wimplicit-fallthrough -Wlogical-op -Wundef                          \
         -Wno-format-truncation -Wno-missing-field-initializers               \
-        -Wno-sign-compare -Wno-unused-parameter
+        -Wno-sign-compare -Wno-unused-parameter -Wcast-function-type
     do
       { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking whether the compiler supports $opt" >&5
 printf %s "checking whether the compiler supports $opt... " >&6; }
@@ -30871,7 +30871,7 @@ CFLAGS="$CFLAGS -Werror"
 
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for the type of fd_set::fds_bits" >&5
 printf %s "checking for the type of fd_set::fds_bits... " >&6; }
-for type in __fd_mask __int32_t unknown; do
+for type in __fd_mask __int32_t long\ int unknown; do
   cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -33909,7 +33909,7 @@ else $as_nop
 int
 main (void)
 {
-struct ifnet test; test.if_mtu = 0;
+struct ifnet test; test.if_mtu = 0; return sizeof(struct in_ifaddr);
   ;
   return 0;
 }
@@ -33941,7 +33941,7 @@ rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
 int
 main (void)
 {
-struct ifnet test; test.if_mtu = 0;
+struct ifnet test; test.if_mtu = 0; return sizeof(struct in_ifaddr);
   ;
   return 0;
 }
@@ -33991,7 +33991,7 @@ else $as_nop
 int
 main (void)
 {
-struct ifnet test; test.if_mtu = 0;
+struct ifnet test; test.if_mtu = 0; return sizeof(struct in_ifaddr);
   ;
   return 0;
 }
@@ -34023,7 +34023,7 @@ rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
 int
 main (void)
 {
-struct ifnet test; test.if_mtu = 0;
+struct ifnet test; test.if_mtu = 0; return sizeof(struct in_ifaddr);
   ;
   return 0;
 }
@@ -36035,6 +36035,48 @@ printf "%s\n" "$ac_cv_have_ip_pktinfo" >&6; }
 if test x$ac_cv_have_ip_pktinfo = xyes; then
 
 printf "%s\n" "#define HAVE_IP_PKTINFO 1" >>confdefs.h
+
+fi
+
+#   Check whether IPV6_RECVPKTINFO is usable.
+#
+
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for IPV6_RECVPKTINFO " >&5
+printf %s "checking for IPV6_RECVPKTINFO ... " >&6; }
+if test ${ac_cv_have_ipv6_recvpktinfo+y}
+then :
+  printf %s "(cached) " >&6
+else $as_nop
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+#include <netinet/in.h>
+
+int
+main (void)
+{
+
+return IPV6_RECVPKTINFO
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"
+then :
+  ac_cv_have_ipv6_recvpktinfo=yes
+else $as_nop
+  ac_cv_have_ipv6_recvpktinfo=no
+
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ac_cv_have_ipv6_recvpktinfo" >&5
+printf "%s\n" "$ac_cv_have_ipv6_recvpktinfo" >&6; }
+if test x$ac_cv_have_ipv6_recvpktinfo = xyes; then
+
+printf "%s\n" "#define HAVE_IPV6_RECVPKTINFO 1" >>confdefs.h
 
 fi
 

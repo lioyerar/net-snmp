@@ -1138,7 +1138,9 @@ _sess_copy(netsnmp_session * in_session)
     session->securityEngineID = NULL;
     session->securityName = NULL;
     session->securityAuthProto = NULL;
+    session->securityAuthLocalKey = NULL;
     session->securityPrivProto = NULL;
+    session->securityPrivLocalKey = NULL;
     session->sessUser = NULL;
     /*
      * session now points to the new structure that still contains pointers to
@@ -1263,6 +1265,22 @@ _sess_copy(netsnmp_session * in_session)
         }
         session->securityName = cp;
         session->securityNameLen = strlen(cp);
+    }
+
+    if (in_session->securityAuthLocalKey) {
+            session->securityAuthLocalKey =
+                netsnmp_memdup(in_session->securityAuthLocalKey,
+                               in_session->securityAuthLocalKeyLen);
+            session->securityAuthLocalKeyLen =
+                in_session->securityAuthLocalKeyLen;
+    }
+
+    if (in_session->securityPrivLocalKey) {
+            session->securityPrivLocalKey =
+                netsnmp_memdup(in_session->securityPrivLocalKey,
+                               in_session->securityPrivLocalKeyLen);
+            session->securityPrivLocalKeyLen =
+                in_session->securityPrivLocalKeyLen;
     }
 
     if (session->retries == SNMP_DEFAULT_RETRIES) {
@@ -1548,7 +1566,7 @@ int
 netsnmp_sess_config_transport(netsnmp_container *transport_configuration,
                               netsnmp_transport *transport)
 {
-    /* Optional supplimental transport configuration information and
+    /* Optional supplemental transport configuration information and
        final call to actually open the transport */
     if (transport_configuration) {
         DEBUGMSGTL(("snmp_sess", "configuring transport\n"));
@@ -1720,7 +1738,7 @@ _sess_open(netsnmp_session * in_session)
         return NULL;
     }
 
-    /* Optional supplimental transport configuration information and
+    /* Optional supplemental transport configuration information and
        final call to actually open the transport */
     if ((rc = netsnmp_sess_config_and_open_transport(in_session, transport))
         != SNMPERR_SUCCESS) {
@@ -1953,22 +1971,23 @@ create_user_from_session(netsnmp_session * session) {
 /* Free the memory owned by a session but not the session object itself. */
 void netsnmp_cleanup_session(netsnmp_session *s)
 {
-    SNMP_FREE(s->localname);
-    SNMP_FREE(s->peername);
-    SNMP_FREE(s->community);
-    SNMP_FREE(s->contextEngineID);
-    SNMP_FREE(s->contextName);
-    SNMP_FREE(s->securityEngineID);
-    SNMP_FREE(s->securityName);
-    SNMP_FREE(s->securityAuthProto);
-    SNMP_FREE(s->securityAuthLocalKey);
-    SNMP_FREE(s->securityPrivProto);
-    SNMP_FREE(s->securityPrivLocalKey);
-    SNMP_FREE(s->paramName);
+    free(s->localname);
+    free(s->peername);
+    free(s->community);
+    free(s->contextEngineID);
+    free(s->contextName);
+    free(s->securityEngineID);
+    free(s->securityName);
+    free(s->securityAuthProto);
+    free(s->securityAuthLocalKey);
+    free(s->securityPrivProto);
+    free(s->securityPrivLocalKey);
+    free(s->paramName);
 #ifndef NETSNMP_NO_TRAP_STATS
-    SNMP_FREE(s->trap_stats);
+    free(s->trap_stats);
 #endif /* NETSNMP_NO_TRAP_STATS */
     usm_free_user(s->sessUser);
+    memset(s, 0, sizeof(*s));
 }
 
 /*
@@ -1980,16 +1999,17 @@ void netsnmp_cleanup_session(netsnmp_session *s)
 static void
 snmp_free_session(netsnmp_session * s)
 {
-    if (s) {
-        netsnmp_cleanup_session(s);
+    if (!s)
+        return;
 
-        /*
-         * clear session from any callbacks
-         */
-        netsnmp_callback_clear_client_arg(s, 0, 0);
+    netsnmp_cleanup_session(s);
 
-        free(s);
-    }
+    /*
+     * clear session from any callbacks
+     */
+    netsnmp_callback_clear_client_arg(s, 0, 0);
+
+    free(s);
 }
 
 /*
@@ -3463,7 +3483,7 @@ snmp_pdu_build(const netsnmp_pdu *pdu, u_char * cp, size_t * out_length)
     }
     DEBUGINDENTLESS();
 
-    /** did we run out of room? (should only happen for bulk reponses) */
+    /** did we run out of room? (should only happen for bulk responses) */
     if (vp && save_vp) {
         save_vp->next_variable = NULL; /* truncate variable list */
         /** count remaining varbinds in list, then free them */
@@ -3835,7 +3855,7 @@ snmpv3_parse(netsnmp_pdu *pdu,
      * Check the msgID we received is a legal value.  If not, then increment
      * snmpInASNParseErrs and return the appropriate error (see RFC 2572,
      * para. 7.2, section 2 -- note that a bad msgID means that the received
-     * message is NOT a serialiization of an SNMPv3Message, since the msgID
+     * message is NOT a serialization of an SNMPv3Message, since the msgID
      * field is out of bounds).  
      */
 
@@ -3866,7 +3886,7 @@ snmpv3_parse(netsnmp_pdu *pdu,
      * Check the msgMaxSize we received is a legal value.  If not, then
      * increment snmpInASNParseErrs and return the appropriate error (see RFC
      * 2572, para. 7.2, section 2 -- note that a bad msgMaxSize means that the
-     * received message is NOT a serialiization of an SNMPv3Message, since the
+     * received message is NOT a serialization of an SNMPv3Message, since the
      * msgMaxSize field is out of bounds).
      */
 
@@ -4458,8 +4478,8 @@ _snmp_parse(struct session_list *slp,
               for authorization to the snmpEngineID scalar, which is
               what is what RFC3415 appendix A species as ok.  Note
               that we haven't bypassed authentication since if there
-              was an authentication eror it would have been handled
-              above in the if(result) part at the lastet.
+              was an authentication error it would have been handled
+              above in the if(result) part at the latest.
            2) From an application point of view if we let this request
               get all the way to the application, it'd require that
               all application types supporting discovery also fire up
@@ -4520,7 +4540,7 @@ _snmp_parse(struct session_list *slp,
                 DEBUGMSGTL(("snmpv3_contextid",
                             "  One correct variable found\n"));
 
-                /* Note: we're explictly not handling a GETBULK.  Deal. */
+                /* Note: we're explicitly not handling a GETBULK.  Deal. */
 
                 /* set up the response */
                 pdu2 = snmp_clone_pdu(pdu);
@@ -5226,7 +5246,7 @@ _build_initial_pdu_packet(struct session_list *slp, netsnmp_pdu *pdu, int bulk)
         pdu->flags |= UCD_MSG_FLAG_FORWARD_ENCODE | UCD_MSG_FLAG_BULK_TOOBIG;
         pktbuf_len = pdu->msgMaxSize;
 
-        /** save original number of vabinds & length */
+        /** save original number of varbinds & length */
         if (0 == orig_count) {
             curr_count = orig_count = count_varbinds(pdu->variables);
             orig_length = length;
@@ -6070,7 +6090,7 @@ _sess_read_accept(struct session_list *slp)
 
     if (nslp != NULL) {
         snmp_session_insert(nslp);
-        /** Tell the new session about its existance if possible. */
+        /** Tell the new session about its existence if possible. */
         DEBUGMSGTL(("sess_read",
                     "perform callback with op=CONNECT\n"));
         (void)nslp->session->callback(NETSNMP_CALLBACK_OP_CONNECT,
@@ -6501,7 +6521,7 @@ snmp_sess_read2(struct session_list *slp, netsnmp_large_fd_set * fdset)
  * If block is true on input, the timeout value will be treated as undefined,
  * but it must be available for setting in snmp_select_info.  On return,
  * block is set to true if the value returned for timeout is undefined;
- * when block is set to false, timeout may be used as a parmeter to 'select'.
+ * when block is set to false, timeout may be used as a parameter to 'select'.
  *
  * snmp_select_info returns the number of open sockets.  (i.e. The number of
  * sessions open)
@@ -6952,7 +6972,7 @@ snmp_oid_ncompare(const oid * in_name1,
      */
     while (len-- > 0) {
         /*
-         * these must be done in seperate comparisons, since
+         * these must be done in separate comparisons, since
          * subtracting them and using that result has problems with
          * subids > 2^31. 
          */
@@ -6983,7 +7003,7 @@ snmp_oid_ncompare(const oid * in_name1,
  *
  * @param[in] in_name1 Left hand side OID.
  * @param[in] len1     Length of LHS OID.
- * @param[in] in_name2 Rigth and side OID.
+ * @param[in] in_name2 Right hand side OID.
  * @param[in] len2     Length of RHS OID.
  * 
  * Caution: this method is called often by
@@ -7011,7 +7031,7 @@ snmp_oid_compare(const oid * in_name1,
      */
     while (len-- > 0) {
         /*
-         * these must be done in seperate comparisons, since
+         * these must be done in separate comparisons, since
          * subtracting them and using that result has problems with
          * subids > 2^31. 
          */
@@ -7038,11 +7058,11 @@ snmp_oid_compare(const oid * in_name1,
  *
  * @param[in] in_name1 Left hand side OID.
  * @param[in] len1     Length of LHS OID.
- * @param[in] in_name2 Rigth and side OID.
+ * @param[in] in_name2 Right hand side OID.
  * @param[in] len2     Length of RHS OID.
  * @param[out] offpt   First offset at which the two OIDs differ.
  * 
- * Caution: this method is called often by command responder applications (ie,
+ * Caution: this method is called often by command responder applications (i.e.,
  * agent).
  *
  * @return -1 if name1 < name2, 0 if name1 = name2, 1 if name1 > name2 and
@@ -7069,7 +7089,7 @@ netsnmp_oid_compare_ll(const oid * in_name1, size_t len1, const oid * in_name2,
      */
     while (len-- > 0) {
         /*
-         * these must be done in seperate comparisons, since
+         * these must be done in separate comparisons, since
          * subtracting them and using that result has problems with
          * subids > 2^31. 
          */
@@ -7121,7 +7141,7 @@ snmp_oidsubtree_compare(const oid * in_name1,
 /** Compares 2 OIDs to determine if they are exactly equal.
  *  This should be faster than doing a snmp_oid_compare for different
  *  length OIDs, since the length is checked first and if != returns
- *  immediately.  Might be very slighly faster if lengths are ==.
+ *  immediately.  Might be very slightly faster if lengths are ==.
  * @param in_name1 A pointer to the first oid.
  * @param len1     length of the first OID (in segments, not bytes)
  * @param in_name2 A pointer to the second oid.
@@ -7153,7 +7173,7 @@ netsnmp_oid_equals(const oid * in_name1,
      */
     while (len-- > 0) {
         /*
-         * these must be done in seperate comparisons, since
+         * these must be done in separate comparisons, since
          * subtracting them and using that result has problems with
          * subids > 2^31. 
          */

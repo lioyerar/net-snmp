@@ -33,7 +33,7 @@
  * * right one to talk with, it will use the same oid buffer to pass to the
  * * rest of the clients, which may not longer be valid.  This should be
  * * fixed in all clients rather than the master.  However, its not a
- * * particularily easy bug to track down so this saves debugging time at
+ * * particularly easy bug to track down so this saves debugging time at
  * * the expense of a few memcpy's.
  */
 #define MIB_CLIENTS_ARE_EVIL 1
@@ -69,6 +69,12 @@ netsnmp_mib_handler *
 get_old_api_handler(void)
 {
     return netsnmp_create_handler("old_api", netsnmp_old_api_helper);
+}
+
+static void *
+netsnmp_clone_variable(void *p)
+{
+    return netsnmp_duplicate_variable(p);
 }
 
 struct variable *
@@ -143,8 +149,7 @@ netsnmp_register_old_api(const char *moduleName,
         memcpy(reginfo->rootoid + mibloclen, vp->name, vp->namelen
                * sizeof(oid));
         reginfo->handler->myvoid = (void *) vp;
-        reginfo->handler->data_clone
-	    = (void *(*)(void *))netsnmp_duplicate_variable;
+        reginfo->handler->data_clone = netsnmp_clone_variable;
         reginfo->handler->data_free = free;
 
         reginfo->priority = priority;
@@ -223,7 +228,7 @@ netsnmp_register_mib_table_row(const char *moduleName,
         DEBUGMSG(("netsnmp_register_mib_table_row", "(%d)\n",
                      (var_subid - vr->namelen)));
         r->handler->myvoid = netsnmp_duplicate_variable(vr);
-        r->handler->data_clone = (void *(*)(void *))netsnmp_duplicate_variable;
+        r->handler->data_clone = netsnmp_clone_variable;
         r->handler->data_free = free;
 
         r->contextName = (context) ? strdup(context) : NULL;
@@ -422,7 +427,7 @@ netsnmp_old_api_helper(netsnmp_mib_handler *handler,
              * WWW: explicitly list the SET conditions 
              */
             /*
-             * (the rest of the) SET contions 
+             * (the rest of the) SET conditions 
              */
             cacheptr =
                 (netsnmp_old_api_cache *)

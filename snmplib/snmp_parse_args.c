@@ -202,7 +202,7 @@ netsnmp_parse_args(int argc,
                    int flags)
 {
     int             arg, ret, sp = 0;
-    char           *cp;
+    const char     *cp;
     char           *Apsz = NULL;
     char           *Xpsz = NULL;
     char           *Cpsz = NULL;
@@ -232,7 +232,7 @@ netsnmp_parse_args(int argc,
     }
 
     optind = 1;
-    while ((arg = getopt(argc, argv, Opts)) != EOF) {
+    while (optind < argc && (arg = getopt(argc, argv, Opts)) != EOF) {
         DEBUGMSGTL(("snmp_parse_args", "handling (#%d): %c (optarg %s) (sp %d)\n",
                     optind, arg, optarg, sp));
         switch (arg) {
@@ -392,7 +392,6 @@ netsnmp_parse_args(int argc,
                 }
 
                 session->transport_configuration->compare =
-                    (netsnmp_container_compare*)
                     netsnmp_transport_config_compare;
             }
 

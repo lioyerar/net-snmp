@@ -2050,7 +2050,7 @@ sprint_realloc_by_type(u_char ** buf, size_t * buf_len, size_t * out_len,
 }
 
 /**
- * Generates a prinf format string.
+ * Generates a printf format string.
  *
  * The original format string is combined with the optional
  * NETSNMP_DS_LIB_OUTPUT_PRECISION string (the -Op parameter).
@@ -2358,7 +2358,7 @@ snmp_out_toggle_options_usage(const char *lead, FILE * outf)
     fprintf(outf, "%sX:  extended index format\n", lead);
 }
 
-char *
+const char *
 snmp_in_options(char *optarg, int argc, char *const *argv)
 {
     char *cp;
@@ -2381,18 +2381,22 @@ snmp_in_options(char *optarg, int argc, char *const *argv)
             netsnmp_ds_toggle_boolean(NETSNMP_DS_LIBRARY_ID, NETSNMP_DS_LIB_READ_UCD_STYLE_OID);
             break;
         case 's':
-            /* What if argc/argv are null ? */
-            if (!*(++cp))
+            if (!*(++cp)) {
                 cp = argv[optind++];
+                if (!cp)
+                    return "?";
+            }
             netsnmp_ds_set_string(NETSNMP_DS_LIBRARY_ID,
                                   NETSNMP_DS_LIB_OIDSUFFIX,
                                   cp);
             return NULL;  /* -Is... is a standalone option, so we're done here */
 
         case 'S':
-            /* What if argc/argv are null ? */
-            if (!*(++cp))
+            if (!*(++cp)) {
                 cp = argv[optind++];
+                if (!cp)
+                    return "?";
+            }
             netsnmp_ds_set_string(NETSNMP_DS_LIBRARY_ID,
                                   NETSNMP_DS_LIB_OIDPREFIX,
                                   cp);
@@ -2409,7 +2413,7 @@ snmp_in_options(char *optarg, int argc, char *const *argv)
     return NULL;
 }
 
-char           *
+const char     *
 snmp_in_toggle_options(char *options)
 {
     return snmp_in_options( options, 0, NULL );
@@ -2561,7 +2565,7 @@ netsnmp_set_mib_directory(const char *dir)
  *              from which the MIB modules will be searched or
  *              loaded.
  *              If the value still does not exists, it will be made
- *              from the evironment variable 'MIBDIRS' and/or the
+ *              from the environment variable 'MIBDIRS' and/or the
  *              default.
  * arguments: -
  * returns  : char * of the directories in which the MIB modules
@@ -3423,13 +3427,13 @@ snprint_variable(char *buf, size_t buf_len,
         return -1;
     }
 }
-#endif /* NETSNMP_FEATURE_REMOVE_SNPRINT_VARABLE */
+#endif /* NETSNMP_FEATURE_REMOVE_SNPRINT_VARABLE  */
 
 /**
  * Prints a variable to stdout.
  *
  * @param objid     The object id.
- * @param objidlen  The length of teh object id.
+ * @param objidlen  The length of the object id.
  * @param variable  The variable to print.
  */
 void
@@ -3445,7 +3449,7 @@ print_variable(const oid * objid,
  *
  * @param f         The file descriptor to print to.
  * @param objid     The object id.
- * @param objidlen  The length of teh object id.
+ * @param objidlen  The length of the object id.
  * @param variable  The variable to print.
  */
 void
@@ -3724,7 +3728,7 @@ build_oid(oid ** out, size_t * out_len,
     oid             tmpout[MAX_OID_LEN];
 
     /*
-     * xxx-rks: inefficent. try only building segments to find index len:
+     * xxx-rks: inefficient. try only building segments to find index len:
      *   for (var = indexes; var != NULL; var = var->next_variable) {
      *      if (build_oid_segment(var) != SNMPERR_SUCCESS)
      *         return SNMPERR_GENERR;
@@ -6432,7 +6436,7 @@ mib_to_asn_type(int mib_type)
  * @param O   The oid.
  * @param L   The length of the oid.
  *
- * @return 0 on Sucess, 1 on failure.
+ * @return 0 on success, 1 on failure.
  */
 #ifndef NETSNMP_FEATURE_REMOVE_MIB_STRING_CONVERSIONS
 int
@@ -6468,7 +6472,7 @@ netsnmp_str2oid(const char *S, oid * O, int L)
  * @param L   The length of the buffer.
  * @param O   The oid.
  *
- * @return 0 on Sucess, 1 on failure.
+ * @return 0 on success, 1 on failure.
  */
 int
 netsnmp_oid2chars(char *C, int L, const oid * O)
@@ -6496,7 +6500,7 @@ netsnmp_oid2chars(char *C, int L, const oid * O)
  * @param L   The length of the string buffer.
  * @param O   The oid.
  *
- * @return 0 on Sucess, 1 on failure.
+ * @return 0 on success, 1 on failure.
  */
 int
 netsnmp_oid2str(char *S, int L, oid * O)

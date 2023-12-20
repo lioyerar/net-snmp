@@ -782,7 +782,7 @@ tlstmCertToTSNTable_handler(netsnmp_mib_handler *handler,
     /** ###################################################### COMMIT #####
      *
      *   COMMIT is the final success state, when all changes are finalized.
-     * There is not recovery state should something faile here.
+     * There is not recovery state should something fail here.
      *
      *   This the final phase for this path in the state machine.
      */
@@ -943,8 +943,9 @@ _entry_from_map(netsnmp_cert_map  *map)
 }
 
 static int
-_cache_load(netsnmp_cache *cache, netsnmp_tdata *table)
+_cache_load(netsnmp_cache *cache, void *q)
 {
+    netsnmp_tdata     *table = q;
     netsnmp_container *maps;
     netsnmp_iterator  *map_itr;
     netsnmp_cert_map  *map;
@@ -998,8 +999,9 @@ _cache_load(netsnmp_cache *cache, netsnmp_tdata *table)
 }
 
 static void
-_cache_free(netsnmp_cache *cache, netsnmp_tdata *table)
+_cache_free(netsnmp_cache *cache, void *q)
 {
+    netsnmp_tdata     *table = q;
     netsnmp_tdata_row *row;
     netsnmp_iterator   *tbl_itr;
     certToTSN_entry   *entry;
@@ -1267,10 +1269,8 @@ init_snmpTlstmCertToTSNTable_context(const char *contextName)
     /*
      * cache init
      */
-    cache = netsnmp_cache_create(30, (NetsnmpCacheLoad*)_cache_load,
-                                 (NetsnmpCacheFree*)_cache_free,
-                                 reg_oid,
-                                 reg_oid_len);
+    cache = netsnmp_cache_create(30, _cache_load, _cache_free,
+                                 reg_oid, reg_oid_len);
     if (NULL == cache) {
         snmp_log(LOG_ERR,"error creating cache for tlstmCertToTSNTable\n");
         netsnmp_tdata_delete_table(_table);

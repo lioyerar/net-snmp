@@ -28,7 +28,7 @@
  * For persistent configuration storage you will need to use the
  * read_config_read_data, read_config_store, and read_config_store_data
  * APIs in conjunction with first registering a
- * callback so when the agent shutsdown for whatever reason data is written
+ * callback so when the agent shuts down for whatever reason data is written
  * to your configuration files.  The following explains in more detail the
  * sequence to make this happen.
  *
@@ -145,7 +145,8 @@ struct config_files *config_files = NULL;
 static struct config_line *
 internal_register_config_handler(const char *type_param,
 				 const char *token,
-				 void (*parser) (const char *, char *),
+				 void (*parser1) (const char *, char *),
+				 void (*parser2) (const char *, const char *),
 				 void (*releaser) (void), const char *help,
 				 int when)
 {
@@ -174,7 +175,7 @@ internal_register_config_handler(const char *type_param,
                 *cptr = '\0';
                 ++cptr;
             }
-            ltmp2 = internal_register_config_handler(c, token, parser,
+            ltmp2 = internal_register_config_handler(c, token, parser1, parser2,
                                                      releaser, help, when);
         }
         return ltmp2;
@@ -238,7 +239,8 @@ internal_register_config_handler(const char *type_param,
      * Add/Replace the parse/free functions for the given line type
      * in the given file type.
      */
-    (*ltmp)->parse_line = parser;
+    (*ltmp)->parse_line1 = parser1;
+    (*ltmp)->parse_line2 = parser2;
     (*ltmp)->free_func = releaser;
 
     return (*ltmp);
@@ -251,7 +253,7 @@ register_prenetsnmp_mib_handler(const char *type,
                                 void (*parser) (const char *, char *),
                                 void (*releaser) (void), const char *help)
 {
-    return internal_register_config_handler(type, token, parser, releaser,
+    return internal_register_config_handler(type, token, parser, NULL, releaser,
 					    help, PREMIB_CONFIG);
 }
 
@@ -306,7 +308,7 @@ register_config_handler(const char *type,
 			void (*parser) (const char *, char *),
 			void (*releaser) (void), const char *help)
 {
-    return internal_register_config_handler(type, token, parser, releaser,
+    return internal_register_config_handler(type, token, parser, NULL, releaser,
 					    help, NORMAL_CONFIG);
 }
 
@@ -316,9 +318,7 @@ register_const_config_handler(const char *type,
                               void (*parser) (const char *, const char *),
                               void (*releaser) (void), const char *help)
 {
-    return internal_register_config_handler(type, token,
-                                            (void(*)(const char *, char *))
-                                            parser, releaser,
+    return internal_register_config_handler(type, token, NULL, parser, releaser,
 					    help, NORMAL_CONFIG);
 }
 
@@ -327,9 +327,16 @@ register_app_config_handler(const char *token,
                             void (*parser) (const char *, char *),
                             void (*releaser) (void), const char *help)
 {
-    return (register_config_handler(NULL, token, parser, releaser, help));
+    return register_config_handler(NULL, token, parser, releaser, help);
 }
 
+struct config_line *
+register_const_app_config_handler(const char *token,
+                                  void (*parser) (const char *, const char *),
+                                  void (*releaser) (void), const char *help)
+{
+    return register_const_config_handler(NULL, token, parser, releaser, help);
+}
 
 
 /**
@@ -554,7 +561,10 @@ run_config_handler(struct config_line *lptr,
             while ((cp > cptr) && isspace((unsigned char)(*cp))) {
                 *(cp--) = '\0';
             }
-            (*(lptr->parse_line)) (token, cptr);
+            if (lptr->parse_line1)
+                lptr->parse_line1(token, cptr);
+            else
+                lptr->parse_line2(token, cptr);
         }
         else
             DEBUGMSGTL(("9:read_config:parser",
@@ -569,14 +579,14 @@ run_config_handler(struct config_line *lptr,
 }
 
 /*
- * takens an arbitrary string and tries to intepret it based on the
+ * takes an arbitrary string and tries to interprets it based on the
  * known configuration handlers for all registered types.  May produce
  * inconsistent results when multiple tokens of the same name are
  * registered under different file types. 
  */
 
 /*
- * we allow = delimeters here 
+ * we allow = delimiters here 
  */
 #define SNMP_CONFIG_DELIMETERS " \t="
 
@@ -607,7 +617,7 @@ snmp_config_when(char *line, int when)
         cptr[strlen(cptr) - 1] = '\0';
         lptr = read_config_get_handlers(cptr + 1);
         if (lptr == NULL) {
-	    netsnmp_config_error("No handlers regestered for type %s.",
+	    netsnmp_config_error("No handlers registered for type %s.",
 				 cptr + 1);
             return SNMPERR_GENERR;
         }
@@ -865,7 +875,7 @@ read_config(const char *filename,
                 token[strlen(token) - 1] = '\0';
                 lptr = read_config_get_handlers(&token[1]);
                 if (lptr == NULL) {
-		    netsnmp_config_error("No handlers regestered for type %s.",
+		    netsnmp_config_error("No handlers registered for type %s.",
 					 &token[1]);
                     continue;
                 }
@@ -927,6 +937,11 @@ read_config(const char *filename,
                     if (cptr == NULL) {
                         if (when != PREMIB_CONFIG)
 		            netsnmp_config_error("Blank line following %s token.", token);
+                        continue;
+                    }
+                    if (strlen(cptr) + 1 >= SNMP_MAXPATH) {
+                        netsnmp_config_error("File name '%s' is too long",
+                                             cptr);
                         continue;
                     }
                     if ( cptr[0] == '/' ) {
@@ -1111,7 +1126,7 @@ read_premib_configs(void)
  * Parameters:
  *      char *dir - value of the directory
  * Sets the configuration directory. Multiple directories can be
- * specified, but need to be seperated by 'ENV_SEPARATOR_CHAR'.
+ * specified, but need to be separated by 'ENV_SEPARATOR_CHAR'.
  */
 void
 set_configuration_directory(const char *dir)
@@ -1174,7 +1189,7 @@ set_persistent_directory(const char *dir)
  * get_persistent_directory
  *
  * Parameters: -
- * Function will retrieve the persisten directory value.
+ * Function will retrieve the persistent directory value.
  * First check whether the value is set.
  * If not set give it the default value.
  * Return the value. 
@@ -1501,7 +1516,7 @@ read_config_print_usage(const char *lead)
 }
 
 /**
- * read_config_store intended for use by applications to store permenant
+ * read_config_store intended for use by applications to store permanent
  * configuration information generated by sets or persistent counters.
  * Appends line to a file named either ENV(SNMP_PERSISTENT_FILE) or
  *   "<NETSNMP_PERSISTENT_DIRECTORY>/<type>.conf".
@@ -1829,7 +1844,7 @@ skip_token_const(const char *ptr)
 /*
  * copy_word
  * copies the next 'token' from 'from' into 'to', maximum len-1 characters.
- * currently a token is anything seperate by white space
+ * currently a token is anything separate by white space
  * or within quotes (double or single) (i.e. "the red rose" 
  * is one token, \"the red rose\" is three tokens)
  * a '\' character will allow a quote character to be treated
@@ -1904,7 +1919,7 @@ copy_nword_const(const char *from, char *to, int len)
 /*
  * copy_word
  * copies the next 'token' from 'from' into 'to'.
- * currently a token is anything seperate by white space
+ * currently a token is anything separate by white space
  * or within quotes (double or single) (i.e. "the red rose" 
  * is one token, \"the red rose\" is three tokens)
  * a '\' character will allow a quote character to be treated
@@ -2103,7 +2118,7 @@ read_config_read_octet_string_const(const char *readfrom, u_char ** str,
  * read_config_save_objid(): saves an objid as a numerical string 
  */
 char           *
-read_config_save_objid(char *saveto, oid * objid, size_t len)
+read_config_save_objid(char *saveto, const oid *objid, size_t len)
 {
     int             i;
 
@@ -2116,10 +2131,9 @@ read_config_save_objid(char *saveto, oid * objid, size_t len)
     /*
      * in case len=0, this makes it easier to read it back in 
      */
-    for (i = 0; i < (int) len; i++) {
-        sprintf(saveto, ".%" NETSNMP_PRIo "d", objid[i]);
-        saveto += strlen(saveto);
-    }
+    for (i = 0; i < len; i++)
+        saveto += sprintf(saveto, ".%" NETSNMP_PRIo "d", objid[i]);
+
     return saveto;
 }
 

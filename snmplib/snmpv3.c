@@ -203,6 +203,7 @@ snmpv3_parse_arg(int arg, char *optarg, netsnmp_session *session, char **Apsz,
                 free(ebuf);
                 return (-1);
             }
+	    free(session->securityEngineID);
             session->securityEngineID = ebuf;
             session->securityEngineIDLen = eout_len;
             break;
@@ -227,17 +228,20 @@ snmpv3_parse_arg(int arg, char *optarg, netsnmp_session *session, char **Apsz,
                 free(ebuf);
                 return (-1);
             }
+	    free(session->contextEngineID);
             session->contextEngineID = ebuf;
             session->contextEngineIDLen = eout_len;
             break;
         }
 
     case 'n':
+        free(session->contextName);
         session->contextName = strdup(optarg);
         session->contextNameLen = strlen(optarg);
         break;
 
     case 'u':
+        free(session->securityName);
         session->securityName = strdup(optarg);
         session->securityNameLen = strlen(optarg);
         break;
@@ -297,6 +301,10 @@ snmpv3_parse_arg(int arg, char *optarg, netsnmp_session *session, char **Apsz,
         break;
     }
     case 'A':
+        if (*Apsz && zero_sensitive) {
+            memset(*Apsz, 0x0, strlen(*Apsz));
+        }
+        free(*Apsz);
         *Apsz = strdup(optarg);
         if (NULL == *Apsz) {
             fprintf(stderr, "malloc failure processing -%c flag.\n",
@@ -308,6 +316,10 @@ snmpv3_parse_arg(int arg, char *optarg, netsnmp_session *session, char **Apsz,
         break;
 
     case 'X':
+        if (*Xpsz && zero_sensitive) {
+            memset(*Xpsz, 0x0, strlen(*Xpsz));
+        }
+        free(*Xpsz);
         *Xpsz = strdup(optarg);
         if (NULL == *Xpsz) {
             fprintf(stderr, "malloc failure processing -%c flag.\n",
@@ -355,6 +367,7 @@ snmpv3_parse_arg(int arg, char *optarg, netsnmp_session *session, char **Apsz,
             SNMP_FREE(kbuf);
             return (-1);
         }
+        free(session->securityAuthLocalKey);
         session->securityAuthLocalKey = kbuf;
         session->securityAuthLocalKeyLen = kout_len;
         break;
@@ -374,6 +387,7 @@ snmpv3_parse_arg(int arg, char *optarg, netsnmp_session *session, char **Apsz,
             SNMP_FREE(kbuf);
             return (-1);
         }
+        free(session->securityPrivLocalKey);
         session->securityPrivLocalKey = kbuf;
         session->securityPrivLocalKeyLen = kout_len;
         break;
@@ -447,7 +461,7 @@ snmpv3_parse_args(char *optarg, netsnmp_session * session, char **Apsz,
  * XXX	What if a node has multiple interfaces?
  * XXX	What if multiple engines all choose the same address?
  *      (answer:  You're screwed, because you might need a kul database
- *       which is dependant on the current engineID.  Enumeration and other
+ *       which is dependent on the current engineID.  Enumeration and other
  *       tricks won't work). 
  */
 int

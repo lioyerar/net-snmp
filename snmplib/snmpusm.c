@@ -710,7 +710,7 @@ usm_remove_usmUser_from_list(struct usmUser *user, struct usmUser **ppuserList)
  * NOTE: if there was only one user in the list, list head will be NULL.
  *       So NULL can also mean success. Use the newer usm_remove_usmUser() for
  *       more specific return codes. This function is kept for backwards
- *       compatability with this ambiguous behaviour.
+ *       compatibility with this ambiguous behaviour.
  */
 static struct usmUser *
 usm_remove_user_from_list(struct usmUser *user,
@@ -849,7 +849,7 @@ int usm_set_priv_key(struct usmUser *user, const char *fname,
         new_key = dummy.privKey;
         new_key_len = dummy.privKeyLen;
         /*
-         * make sure no reallocation happened; buf2 must be large enoungh
+         * make sure no reallocation happened; buf2 must be large enough
          */
         netsnmp_assert(dummy.privKey == buf2);
     }
@@ -1479,7 +1479,7 @@ usm_generate_out_msg(int msgProcModel,  /* (UNUSED) */
      * 
      * None of these are to be free'd - they are either pointing to
      * what's in the secStateRef or to something either in the
-     * actual prarmeter list or the user list.
+     * actual parameter list or the user list.
      */
 
     const char     *theName = NULL;
@@ -2537,7 +2537,7 @@ usm_parse_security_parameters(u_char * secParams,
 
     /*
      * Retrieve the engine boots, notice switch in the way next_ptr and
-     * remaining_bytes are used (to accomodate the asn code).
+     * remaining_bytes are used (to accommodate the asn code).
      */
     DEBUGDUMPHEADER("recv", "msgAuthoritativeEngineBoots");
     if ((next_ptr = asn_parse_int(next_ptr, &remaining_bytes, &type_value,
@@ -4276,9 +4276,14 @@ usm_store_users(int majorID, int minorID, void *serverarg, void *clientarg)
     return SNMPERR_SUCCESS;
 }
 
-/*
- * usm_parse_user(): reads in a line containing a saved user profile
+/**
+ * usm_read_user(): reads in a line containing a saved user profile
  * and returns a pointer to a newly created struct usmUser. 
+ *
+ * @param[in]     line Line of text containing a saved user profile
+ *
+ * @return A pointer to the newly-created struct usmUser if
+ *   parsing succeeded; NULL if an error occurred.
  */
 static struct usmUser *
 usm_read_user(const char *line)
@@ -4292,41 +4297,81 @@ usm_read_user(const char *line)
 
     user->userStatus = atoi(line);
     line = skip_token_const(line);
+    if (line == NULL) {
+        DEBUGMSGTL(("usm", "Configuration line missing userStorageType\n"));
+        usm_free_user(user);
+        return NULL;
+    }
+
     user->userStorageType = atoi(line);
     line = skip_token_const(line);
+    if (line == NULL) {
+        DEBUGMSGTL(("usm", "Configuration line missing engineID\n"));
+        usm_free_user(user);
+        return NULL;
+    }
     line = read_config_read_octet_string_const(line, &user->engineID,
                                                &user->engineIDLen);
 
-    /*
-     * set the lcd entry for this engineID to the minimum boots/time
-     * values so that its a known engineid and won't return a report pdu.
-     * This is mostly important when receiving v3 traps so that the usm
-     * will at least continue processing them. 
-     */
-    set_enginetime(user->engineID, user->engineIDLen, 1, 0, 0);
-
+    if (line == NULL) {
+        DEBUGMSGTL(("usm", "Configuration line missing name\n"));
+        usm_free_user(user);
+        return NULL;
+    }
     line = read_config_read_octet_string(line, (u_char **) & user->name,
                                          &len);
+    if (line == NULL) {
+        DEBUGMSGTL(("usm", "Configuration line missing security name\n"));
+        usm_free_user(user);
+        return NULL;
+    }
     line = read_config_read_octet_string(line, (u_char **) & user->secName,
                                          &len);
     SNMP_FREE(user->cloneFrom);
     user->cloneFromLen = 0;
 
+    if (line == NULL) {
+        DEBUGMSGTL(("usm", "Configuration line missing clone from\n"));
+        usm_free_user(user);
+        return NULL;
+    }
     line = read_config_read_objid_const(line, &user->cloneFrom,
                                         &user->cloneFromLen);
 
     SNMP_FREE(user->authProtocol);
     user->authProtocolLen = 0;
 
+    if (line == NULL) {
+        DEBUGMSGTL(("usm", "Configuration line missing authentication protocol\n"));
+        usm_free_user(user);
+        return NULL;
+    }
     line = read_config_read_objid_const(line, &user->authProtocol,
                                         &user->authProtocolLen);
+
+    if (line == NULL) {
+        DEBUGMSGTL(("usm", "Configuration line missing authentication key\n"));
+        usm_free_user(user);
+        return NULL;
+    }
     line = read_config_read_octet_string_const(line, &user->authKey,
                                                &user->authKeyLen);
     SNMP_FREE(user->privProtocol);
     user->privProtocolLen = 0;
 
+    if (line == NULL) {
+        DEBUGMSGTL(("usm", "Configuration line missing privacy protocol\n"));
+        usm_free_user(user);
+        return NULL;
+    }
     line = read_config_read_objid_const(line, &user->privProtocol,
                                         &user->privProtocolLen);
+
+    if (line == NULL) {
+        DEBUGMSGTL(("usm", "Configuration line missing privacy key\n"));
+        usm_free_user(user);
+        return NULL;
+    }
     line = read_config_read_octet_string(line, &user->privKey,
                                          &user->privKeyLen);
 
@@ -4339,8 +4384,24 @@ usm_read_user(const char *line)
         user->privKeyLen = proper_length;
     }
 
+    if (line == NULL) {
+        DEBUGMSGTL(("usm", "Configuration line missing public string\n"));
+        usm_free_user(user);
+        return NULL;
+    }
     line = read_config_read_octet_string(line, &user->userPublicString,
                                          &user->userPublicStringLen);
+
+    /*
+     * set the lcd entry for this engineID to the minimum boots/time
+     * values so that its a known engineid and won't return a report pdu.
+     * This is mostly important when receiving v3 traps so that the usm
+     * will at least continue processing them.
+     * Note: We do this at the end so that it only runs if the parsing
+     * was successful
+     */
+    set_enginetime(user->engineID, user->engineIDLen, 1, 0, 0);
+
     return user;
 }
 
@@ -4558,7 +4619,7 @@ usm_set_user_password(struct usmUser *user, const char *token, char *line)
  * create a usm user from a string.
  *
  * The format for the string is described in the createUser
- * secion of the snmpd.conf man page.
+ * section of the snmpd.conf man page.
  *
  * On success, a pointer to the created usmUser struct is returned.
  * On error, a NULL pointer is returned. In this case, if a pointer to a
@@ -4674,7 +4735,10 @@ usm_create_usmUser_from_string(char *line, const char **errorMsg)
      */
     newuser->authProtocol[0] = 0;
     cp = copy_nword(cp, buf, sizeof(buf));
-    if ((strncmp(cp, "default", 7) == 0) && (NULL != def_auth_prot)) {
+    /* If no authentication protocol was specified, or it was explicitly
+     * set to use the default, use the default auth protocol
+     */
+    if ((!cp || (strncmp(cp, "default", 7) == 0)) && (NULL != def_auth_prot)) {
         SNMP_FREE(newuser->authProtocol);
         newuser->authProtocol = snmp_duplicate_objid(def_auth_prot,
                                                      def_auth_prot_len);
@@ -5097,10 +5161,7 @@ static int
 deinit_usm_post_config(int majorid, int minorid, void *serverarg,
 		       void *clientarg)
 {
-    if (usm_free_user(noNameUser) != NULL) {
-	DEBUGMSGTL(("deinit_usm_post_config", "could not free initial user\n"));
-	return SNMPERR_GENERR;
-    }
+    usm_free_user(noNameUser);
     noNameUser = NULL;
 
     DEBUGMSGTL(("deinit_usm_post_config", "initial user removed\n"));
@@ -5116,7 +5177,7 @@ init_usm(void)
     DEBUGMSGTL(("init_usm", "unit_usm: %" NETSNMP_PRIo "u %" NETSNMP_PRIo "u\n",
                 usmNoPrivProtocol[0], usmNoPrivProtocol[1]));
 
-    sc_init();                  /* initalize scapi code */
+    sc_init();                  /* initialize scapi code */
 
     /*
      * register ourselves as a security service

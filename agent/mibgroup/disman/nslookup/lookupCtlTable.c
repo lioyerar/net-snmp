@@ -133,10 +133,15 @@ create_lookupTable_data(void)
     struct lookupTable_data *StorageNew = NULL;
     StorageNew = SNMP_MALLOC_STRUCT(lookupTable_data);
     if (StorageNew == NULL) {
-        snmp_log(LOG_ERR, "Out in memory in nslookup-mib/create_lookupTable_date\n");
+        snmp_log(LOG_ERR, "Out of memory in nslookup-mib/create_lookupTable_data\n");
         exit(1);
     }
     StorageNew->lookupCtlTargetAddress = strdup("");
+    if (StorageNew->lookupCtlTargetAddress == NULL) {
+        free(StorageNew);
+        snmp_log(LOG_ERR, "Out of memory in nslookup-mib/create_lookupTable_data\n");
+        exit(1);
+    }
     StorageNew->lookupCtlTargetAddressLen = 0;
     StorageNew->lookupCtlOperStatus = 2L;
     StorageNew->lookupCtlTime = 0;
@@ -494,6 +499,13 @@ add_result(struct lookupTable_data *item, int index,
 
     temp->lookupResultsAddressType = iatype;
     temp->lookupResultsAddress = malloc(data_len + 1);
+    if (temp->lookupResultsAddress == NULL) {
+        snmp_log(LOG_ERR, "Out of memory in nslookup-mib/run_lookup\n");
+        free(temp->lookupCtlOperationName);
+        free(temp->lookupCtlOwnerIndex);
+        free(temp);
+        return NULL;
+    }
     memcpy(temp->lookupResultsAddress, data, data_len);
     temp->lookupResultsAddress[data_len] = '\0';
     temp->lookupResultsAddressLen = data_len;
@@ -969,7 +981,7 @@ write_lookupCtlTargetAddressType(int action,
 
     case RESERVE2:
         /*
-         * memory reseveration, final preparation... 
+         * memory reservation, final preparation... 
          */
         break;
 
@@ -983,7 +995,7 @@ write_lookupCtlTargetAddressType(int action,
         /*
          * The variable has been stored in objid for
          * you to use, and you have just been asked to do something with
-         * it.  Note that anything done here must be reversable in the UNDO case
+         * it.  Note that anything done here must be reversible in the UNDO case
          */
         tmpvar = StorageTmp->lookupCtlTargetAddressType;
         StorageTmp->lookupCtlTargetAddressType = *((long *) var_val);
@@ -1051,7 +1063,7 @@ write_lookupCtlTargetAddress(int action,
 
     case RESERVE2:
         /*
-         * memory reseveration, final preparation... 
+         * memory reservation, final preparation... 
          */
         break;
 
@@ -1065,7 +1077,7 @@ write_lookupCtlTargetAddress(int action,
         /*
          * The variable has been stored in long_ret for
          * you to use, and you have just been asked to do something with
-         * it.  Note that anything done here must be reversable in the UNDO case
+         * it.  Note that anything done here must be reversible in the UNDO case
          */
         tmpvar = StorageTmp->lookupCtlTargetAddress;
         tmplen = StorageTmp->lookupCtlTargetAddressLen;
@@ -1218,7 +1230,7 @@ write_lookupCtlRowStatus(int action,
 
     case RESERVE2:
         /*
-         * memory reseveration, final preparation... 
+         * memory reservation, final preparation... 
          */
         if (StorageTmp == NULL) {
             /*
@@ -1293,7 +1305,7 @@ write_lookupCtlRowStatus(int action,
         /*
          * The variable has been stored in set_value for you to
          * use, and you have just been asked to do something with
-         * it.  Note that anything done here must be reversable in
+         * it.  Note that anything done here must be reversible in
          * the UNDO case 
          */
         if (StorageTmp == NULL) {
